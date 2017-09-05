@@ -119,6 +119,8 @@ catkin_package(
 include_directories(
 include
 ${catkin_INCLUDE_DIRS}
+${CATKIN_DEVEL_PREFIX}/include
+${CATKIN_DEVEL_PREFIX}/../src/imav/include
 )
 # link_directories(
 # ./libs

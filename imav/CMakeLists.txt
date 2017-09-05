@@ -14,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   cv_bridge
   image_transport
+  serial
 )
 
 ## System dependencies are found with CMake's conventions
@@ -256,7 +257,6 @@ add_executable(get_uwb_distance
 add_dependencies(get_uwb_distance ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(get_uwb_distance
   ${catkin_LIBRARIES}
-  serial
 )
 add_executable(cooperation
   src/cooperation.cpp

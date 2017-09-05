@@ -120,6 +120,7 @@ catkin_package(
 include_directories(
 include
 ${CATKIN_DEVEL_PREFIX}/include
+${CATKIN_DEVEL_PREFIX}/../src/imav/include
 ${catkin_INCLUDE_DIRS}
 )
 # link_directories(

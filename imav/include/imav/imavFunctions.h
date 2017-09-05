@@ -13,28 +13,28 @@
 #define MISSION_CHECK_BARREL 1
 #define MISSION_SAVE_GPS 2
 
-#define RIGHT_ANGLE     90.0
-#define PI              3.1415926535898
-#define EARTH_RADIUS    6378.137
+#define RIGHT_ANGLE 90.0
+#define IMAV_PI 3.1415926535898
+#define EARTH_RADIUS 6378.137
 
 #define OUT_AREA_THREAD 10 //m
 
 std::string lonlat2degreefenmiao(double lonlat)
 {
     double degree = double(int(lonlat));
-    double fen = double(lonlat-degree)*60;
-    double miao = (fen-(int)fen)*60;
+    double fen = double(lonlat - degree) * 60;
+    double miao = (fen - (int)fen) * 60;
     fen = int(fen);
 
-    if (fabs(miao)<0.00000001)
+    if (fabs(miao) < 0.00000001)
     {
         miao = 0.0;
     }
 
     std::stringstream ss;
-    ss<<degree<<"°"<<fen<<"'"<<miao<<"''";
+    ss << degree << "°" << fen << "'" << miao << "''";
     std::string result;
-    ss>>result;
+    ss >> result;
 
     return result;
 }
@@ -47,7 +47,7 @@ std::string lonlat2degreefenmiao(double lonlat)
  */
 static double Deg2Rad(double degree)
 {
-  return degree * PI / (RIGHT_ANGLE * 2);
+    return degree * IMAV_PI / (RIGHT_ANGLE * 2);
 }
 
 /**
@@ -59,26 +59,26 @@ static double Deg2Rad(double degree)
  * 
  * @return DirectDistance: the direction distance from source coordinate to destination coordinate.
  */
-static double GetDirectDistance(double srcLat, double srcLon,double destLat, double destLon)
+static double GetDirectDistance(double srcLat, double srcLon, double destLat, double destLon)
 {
-	double radSrcLat = Deg2Rad(srcLat);
-	double radDestLat = Deg2Rad(destLat);
-	double a = radSrcLat - radDestLat;
-	double b = Deg2Rad(srcLon) - Deg2Rad(destLon);
+    double radSrcLat = Deg2Rad(srcLat);
+    double radDestLat = Deg2Rad(destLat);
+    double a = radSrcLat - radDestLat;
+    double b = Deg2Rad(srcLon) - Deg2Rad(destLon);
 
-	double DirectDistance = 2 * asin(sqrt(pow(sin(a/2),2) +	cos(radSrcLat)*cos(radDestLat)*pow(sin(b/2),2)));
+    double DirectDistance = 2 * asin(sqrt(pow(sin(a / 2), 2) + cos(radSrcLat) * cos(radDestLat) * pow(sin(b / 2), 2)));
 
-	DirectDistance = DirectDistance * EARTH_RADIUS;
-	DirectDistance = round(DirectDistance * 10000) / 10000*1000;
+    DirectDistance = DirectDistance * EARTH_RADIUS;
+    DirectDistance = round(DirectDistance * 10000) / 10000 * 1000;
 
-	return DirectDistance;
+    return DirectDistance;
 }
 
 bool outofcheckedarea(sensor_msgs::NavSatFix current_gps, imav::BarrelList checkedbarrels)
 {
     for (size_t i = 0; i < checkedbarrels.barrels.size(); i++)
     {
-        if (GetDirectDistance(current_gps.latitude, current_gps.longitude,checkedbarrels.barrels[i].latitude,checkedbarrels.barrels[i].longitude)<OUT_AREA_THREAD)
+        if (GetDirectDistance(current_gps.latitude, current_gps.longitude, checkedbarrels.barrels[i].latitude, checkedbarrels.barrels[i].longitude) < OUT_AREA_THREAD)
         {
             return 0;
         }
@@ -86,40 +86,38 @@ bool outofcheckedarea(sensor_msgs::NavSatFix current_gps, imav::BarrelList check
     return 1;
 }
 
-
-
-bool sortBarrelsByArea1(const imav::Barrel& b1, const imav::Barrel& b2)
+bool sortBarrelsByArea1(const imav::Barrel &b1, const imav::Barrel &b2)
 {
-    return b1.area>b2.area;
+    return b1.area > b2.area;
 }
 
-void sortBarrelsByArea(imav::BarrelList& barrellist)
+void sortBarrelsByArea(imav::BarrelList &barrellist)
 {
-    std::sort(barrellist.barrels.begin(),barrellist.barrels.end(), sortBarrelsByArea1);
+    std::sort(barrellist.barrels.begin(), barrellist.barrels.end(), sortBarrelsByArea1);
 }
 
 std::string home_path("~");
 
 std::string expand_user(std::string path)
-{  
-    if (not path.empty() and path[0] == '~') 
-    {  
-        assert(path.size() == 1 or path[1] == '/');  // or other error handling  
-        char const* home = getenv("HOME");  
+{
+    if (not path.empty() and path[0] == '~')
+    {
+        assert(path.size() == 1 or path[1] == '/'); // or other error handling
+        char const *home = getenv("HOME");
         if (home or ((home = getenv("USERPROFILE"))))
-        {  
-            path.replace(0, 1, home);  
-        }  
-        else 
-        {  
-            char const *hdrive = getenv("HOMEDRIVE"),  
-            *hpath = getenv("HOMEPATH");  
-            assert(hdrive);  // or other error handling  
-            assert(hpath);  
-            path.replace(0, 1, std::string(hdrive) + hpath);  
-        }  
-    }  
-    return path;  
+        {
+            path.replace(0, 1, home);
+        }
+        else
+        {
+            char const *hdrive = getenv("HOMEDRIVE"),
+                       *hpath = getenv("HOMEPATH");
+            assert(hdrive); // or other error handling
+            assert(hpath);
+            path.replace(0, 1, std::string(hdrive) + hpath);
+        }
+    }
+    return path;
 }
 
 std::string initBarrelWritePath()
@@ -129,43 +127,42 @@ std::string initBarrelWritePath()
 #ifdef WIN32
 
 #else
-	home_path = expand_user(home_path);
-	home_path+="/";
-	cout<<"home_path:"<<home_path<<endl;
+    home_path = expand_user(home_path);
+    home_path += "/";
+    cout << "home_path:" << home_path << endl;
 
-	std::string barrel_num_file_path = home_path;
-	std::string writer_path = home_path;
-	barrel_num_file_path+="workspace/imav/barrel_file_num.txt";
-	writer_path+="workspace/imav/";
+    std::string barrel_num_file_path = home_path;
+    std::string writer_path = home_path;
+    barrel_num_file_path += "workspace/imav/barrel_file_num.txt";
+    writer_path += "workspace/imav/";
 #endif // WIN32
 
-	cout<<"barrel_file_num path:"<<barrel_num_file_path<<endl;
-	cout<<"barrel_gps writer_path:"<<writer_path<<endl;
+    cout << "barrel_file_num path:" << barrel_num_file_path << endl;
+    cout << "barrel_gps writer_path:" << writer_path << endl;
 
     int barrel_file_num = 0;
 
     std::ifstream barrel_num_file_read;
     barrel_num_file_read.open(barrel_num_file_path.c_str());
-	barrel_num_file_read >> barrel_file_num;
-	barrel_num_file_read.close();
+    barrel_num_file_read >> barrel_file_num;
+    barrel_num_file_read.close();
 
-	cout<<"barrel_file_num :"<<barrel_file_num<<endl;
+    cout << "barrel_file_num :" << barrel_file_num << endl;
 
-    std::ofstream barrel_num_file_writer; 
-	barrel_num_file_writer.open(barrel_num_file_path.c_str());
-	barrel_num_file_writer << (barrel_file_num + 1);
-	barrel_num_file_writer.close();
+    std::ofstream barrel_num_file_writer;
+    barrel_num_file_writer.open(barrel_num_file_path.c_str());
+    barrel_num_file_writer << (barrel_file_num + 1);
+    barrel_num_file_writer.close();
 
-	std::stringstream ss;
-	std::string barrel_gps_file_name;
+    std::stringstream ss;
+    std::string barrel_gps_file_name;
 
-	ss << barrel_file_num;
-	ss >> barrel_gps_file_name;
-	barrel_gps_file_name += ".txt";
+    ss << barrel_file_num;
+    ss >> barrel_gps_file_name;
+    barrel_gps_file_name += ".txt";
     std::ofstream barrel_gps_writer;
-    barrel_gps_writer.open((writer_path+barrel_gps_file_name).c_str(), std::ios::app);
-    return (writer_path+barrel_gps_file_name);
-
+    barrel_gps_writer.open((writer_path + barrel_gps_file_name).c_str(), std::ios::app);
+    return (writer_path + barrel_gps_file_name);
 }
 
-#endif//__IMAV_FUNCTIONS_H__
+#endif //__IMAV_FUNCTIONS_H__

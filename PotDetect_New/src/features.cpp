@@ -6,11 +6,14 @@
 #include "PotDetect_New/features.h"
 #include <math.h>
 #include <fstream>
+#include <imav/imavFunctions.h>
 
-string log_file_hog = "/home/odroid/catkin_ws/src/PotDetect_New/src/log_params/log_hog.txt";
-string log_file_hist = "/home/odroid/catkin_ws/src/PotDetect_New/src/log_params/log_hist.txt";
-string log_file_pix = "/home/odroid/catkin_ws/src/PotDetect_New/src/log_params/log_pix.txt";
-string log_file_bow = "/home/odroid/catkin_ws/src/PotDetect_New/src/log_params/log_bow.txt";
+std::string my_home_path = expand_user("~") + "/";
+
+string log_file_hog = my_home_path + "catkin_ws/src/PotDetect_New/src/log_params/log_hog.txt";
+string log_file_hist = my_home_path + "catkin_ws/src/PotDetect_New/src/log_params/log_hist.txt";
+string log_file_pix = my_home_path + "catkin_ws/src/PotDetect_New/src/log_params/log_pix.txt";
+string log_file_bow = my_home_path + "catkin_ws/src/PotDetect_New/src/log_params/log_bow.txt";
 
 void feat_max_blur(Mat &src, Size ksize)
 {

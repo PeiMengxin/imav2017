@@ -121,6 +121,8 @@ include_directories(
   include
   include/land
   ${catkin_INCLUDE_DIRS}
+  ${CATKIN_DEVEL_PREFIX}/include
+  ${CATKIN_DEVEL_PREFIX}/../src/imav/include
 )
 
 ## Declare a C++ library
