@@ -1,0 +1,9 @@
+<launch>
+    <node pkg="imav" type="get_uwb_distance" name="get_uwb_distance" output="screen">
+	    <param name="uwb_port_name" type="str" value="/dev/ttyACM1" />
+    </node>
+    <node pkg="imav" type="cooperation" name="cooperation" output="screen">
+        <param name="exp_distance" type="int" value="3000" />
+        <param name="exp_high" type="double" value="3.0" />
+    </node>
+</launch>

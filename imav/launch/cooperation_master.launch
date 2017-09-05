@@ -1,0 +1,6 @@
+<launch>
+    <node pkg="imav" type="cooperation_master" name="cooperation_master" output="screen">
+        <param name="exp_high" type="double" value="3.0" />
+        <param name="cooperation_master_speed" type="double" value="0.5" />
+    </node>
+</launch>
