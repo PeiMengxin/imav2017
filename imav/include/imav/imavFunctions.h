@@ -19,7 +19,7 @@
 
 #define OUT_AREA_THREAD 10 //m
 
-std::string lonlat2degreefenmiao(double lonlat)
+static std::string lonlat2degreefenmiao(double lonlat)
 {
     double degree = double(int(lonlat));
     double fen = double(lonlat - degree) * 60;
@@ -74,7 +74,7 @@ static double GetDirectDistance(double srcLat, double srcLon, double destLat, do
     return DirectDistance;
 }
 
-bool outofcheckedarea(sensor_msgs::NavSatFix current_gps, imav::BarrelList checkedbarrels)
+static bool outofcheckedarea(sensor_msgs::NavSatFix current_gps, imav::BarrelList checkedbarrels)
 {
     for (size_t i = 0; i < checkedbarrels.barrels.size(); i++)
     {
@@ -86,19 +86,17 @@ bool outofcheckedarea(sensor_msgs::NavSatFix current_gps, imav::BarrelList check
     return 1;
 }
 
-bool sortBarrelsByArea1(const imav::Barrel &b1, const imav::Barrel &b2)
+static bool sortBarrelsByArea1(const imav::Barrel &b1, const imav::Barrel &b2)
 {
     return b1.area > b2.area;
 }
 
-void sortBarrelsByArea(imav::BarrelList &barrellist)
+static void sortBarrelsByArea(imav::BarrelList &barrellist)
 {
     std::sort(barrellist.barrels.begin(), barrellist.barrels.end(), sortBarrelsByArea1);
 }
 
-std::string home_path("~");
-
-std::string expand_user(std::string path)
+static std::string expand_user(std::string path)
 {
     if (not path.empty() and path[0] == '~')
     {
@@ -120,14 +118,14 @@ std::string expand_user(std::string path)
     return path;
 }
 
-std::string initBarrelWritePath()
+static std::string initBarrelWritePath()
 {
     using std::cout;
     using std::endl;
 #ifdef WIN32
 
 #else
-    home_path = expand_user(home_path);
+    std::string home_path = expand_user("~");
     home_path += "/";
     cout << "home_path:" << home_path << endl;
 

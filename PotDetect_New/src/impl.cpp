@@ -125,25 +125,25 @@ void detect_bbox(Mat &src, vector<Target> &targets, bool bCurFrame)
 						{
 							t.life = LIFE;
 							t.index = targets.size();
-							cout << "target " << t.index << " added" << endl;
+							//cout << "target " << t.index << " added" << endl;
 							targets.push_back(t);
 						}
 						else
 						{
-							cout << "too many pots" << endl;
+							//cout << "too many pots" << endl;
 						}
 					}
 				}
 			}
 			else if (target_detectable(t, src.size()))
 			{ //update
-				cout << "target " << targets[closest_index].index << " updated" << endl;
+				//cout << "target " << targets[closest_index].index << " updated" << endl;
 				targets[closest_index].location = raw_bbox;
 				targets[closest_index].life = LIFE;
 			}
 			else
 			{
-				cout << "target " << targets[closest_index].index << " disappeared" << endl;
+				//cout << "target " << targets[closest_index].index << " disappeared" << endl;
 				vector<Target>::iterator iter_erase = targets.erase(targets.begin() + closest_index);
 				for (; iter_erase != targets.end(); ++iter_erase)
 				{
@@ -159,7 +159,7 @@ void detect_bbox(Mat &src, vector<Target> &targets, bool bCurFrame)
 			{
 				if ((*iter).life == 0)
 				{
-					cout << "target " << (*iter).index << " died" << endl;
+					//cout << "target " << (*iter).index << " died" << endl;
 					iter = targets.erase(iter);
 				}
 				else

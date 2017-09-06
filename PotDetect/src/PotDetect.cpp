@@ -17,6 +17,7 @@
 #include <imav/Barrel.h>
 #include <imav/BarrelList.h>
 #include <imav/GameMode.h>
+#include <imav/imavFunctions.h>
 
 #define FILTER_LEN	2*LIFE
 using namespace std;
@@ -139,7 +140,8 @@ int main(int argc, char *argv[])
 	pTrackPos.x=center_x;
 	pTrackPos.y=center_y;
 	mSVM=get_svm();
-	videowriter.open("/home/odroid/workspace/video/1000.avi", CV_FOURCC('M', 'P', '4', '2'), 30, Size(640, 480));
+	std::string my_home_path = expand_user("~") + "/";
+	videowriter.open(my_home_path+"workspace/video/1000.avi", CV_FOURCC('M', 'P', '4', '2'), 30, Size(640, 480));
 	ros::Rate loop_rate(100);
 	ros::Rate loop_rate1(1);
 	while (ros::ok())

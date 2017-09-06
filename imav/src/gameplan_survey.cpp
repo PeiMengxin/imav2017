@@ -4,6 +4,7 @@
 //任务执行完成之后自动切换回offboard模式
 
 #include <ros/ros.h>
+#include <ros/param.h>
 #include <std_msgs/String.h>
 #include <stdio.h>
 #include <math.h>
@@ -101,6 +102,13 @@ int main(int argc, char **argv)
     //the setpoint publishing rate MUST be faster than 2Hz
     ros::Rate rate(50.0);
 
+    double height_land = 1.0;
+    ros::param::get("~height_land", height_land);
+    if (height_land<0.5)
+    {
+		height_land = 0.5;
+    }
+
     // wait for FCU connection
     while(ros::ok() && current_state.connected){
         ros::spinOnce();
@@ -127,7 +135,7 @@ int main(int argc, char **argv)
 		
 		if (ros::Time::now()-last_show_time>ros::Duration(1.0))
 		{
-			ROS_INFO("Mode: %s", current_state.mode.c_str());
+			ROS_INFO("PX4 Mode: %s", current_state.mode.c_str());
 			
 			last_show_time = ros::Time::now();
 		}
@@ -145,10 +153,11 @@ int main(int argc, char **argv)
             }
         }
         geometry_msgs::TwistStamped velocity_tw;
-
         velocity_pub.publish(velocity_tw);
+
         ros::spinOnce();
         rate.sleep();
+        
         if (current_waypoints.waypoints.size()==0)
         {
             continue;
@@ -172,7 +181,7 @@ int main(int argc, char **argv)
     {
         gamemode_pub.publish(current_gamemode);
 
-        if (current_local_pose.pose.position.z<0.5)
+        if (current_local_pose.pose.position.z<height_land)
         {
             break;
         }
@@ -198,14 +207,14 @@ int main(int argc, char **argv)
         last_request = ros::Time::now();
     }
 
-    ros::Rate rate1(10);
+    ros::Rate rate1(1);
     while (ros::ok())
     {
         gamemode_pub.publish(current_gamemode);
-        ROS_INFO("Mode: %s", current_state.mode.c_str());
+        ROS_INFO("PX4 Mode: %s", current_state.mode.c_str());
         
         ros::spinOnce();
-        rate.sleep();
+        rate1.sleep();
     }
 
     ros::spin();

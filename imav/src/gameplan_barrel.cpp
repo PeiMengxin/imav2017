@@ -211,12 +211,12 @@ int main(int argc, char **argv)
     {
         gamemode_pub.publish(current_gamemode);
         geometry_msgs::TwistStamped velocity_tw;
-	if (ros::Time::now()-last_show_time>ros::Duration(1.0))
-	{
-	    ROS_INFO("Mode: %s", current_state.mode.c_str());
-	    ROS_INFO("mission_status: %d", mission_status);
-	    last_show_time = ros::Time::now();
-	}
+        if (ros::Time::now()-last_show_time>ros::Duration(1.0))
+        {
+            ROS_INFO("PX4 Mode: %s", current_state.mode.c_str());
+            ROS_INFO("mission_status: %d", mission_status);
+            last_show_time = ros::Time::now();
+        }
         
         if (current_waypoints.waypoints.size()==0)
         {
@@ -336,7 +336,7 @@ int main(int argc, char **argv)
             }
         }
 	
-	if (rcIn.channels[4]<1650)
+	    if (rcIn.channels[4]<1650)
         {
             mission_status = MISSION_IDLE;
         }
@@ -357,7 +357,7 @@ int main(int argc, char **argv)
                         }
                     }
                 }
-		break;
+		        break;
             }
 
             case MISSION_CHECK_BARREL:
@@ -372,7 +372,7 @@ int main(int argc, char **argv)
                 }
 
                 velocity_tw = current_pid_velocity;
-		velocity_tw.twist.linear.z = 0.0;
+		        velocity_tw.twist.linear.z = 0.0;
                 if(current_barrelList.barrels[0].color==targetBarrel.color)
                 {
                     velocity_tw.twist.linear.z = 0.0;   
@@ -382,7 +382,7 @@ int main(int argc, char **argv)
                     velocity_tw.twist.linear.z = 0.0;
                 }
 		
-		ROS_INFO("velocity_tw:[%.2f,%.2f]",velocity_tw.twist.linear.x,velocity_tw.twist.linear.y);
+		        ROS_INFO("velocity_tw:[%.2f,%.2f]",velocity_tw.twist.linear.x,velocity_tw.twist.linear.y);
 
                 velocity_pub.publish(velocity_tw);*/
 
@@ -394,8 +394,8 @@ int main(int argc, char **argv)
         {
             break;
         }
-	ros::spinOnce();
-	rate.sleep();
+        ros::spinOnce();
+        rate.sleep();
     }
 
     offb_set_mode.request.custom_mode = "OFFBOARD";
@@ -438,11 +438,11 @@ int main(int argc, char **argv)
         last_request = ros::Time::now();
     }
 
-    ros::Rate rate1(2);
+    ros::Rate rate1(1);
     while (ros::ok())
     {
-	ROS_INFO("------Game Over------");
-        ROS_INFO("Mode: %s", current_state.mode.c_str());
+	    ROS_INFO("------Game Over------");
+        ROS_INFO("PX4 Mode: %s", current_state.mode.c_str());
         
         ros::spinOnce();
         rate1.sleep();

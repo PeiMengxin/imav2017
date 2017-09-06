@@ -153,11 +153,8 @@ add_dependencies(ImageFetcher_new ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_E
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(ImageFetcher_new
-# opencv_core3
-# opencv_highgui3
-# opencv_imgproc3
-pthread
-${catkin_LIBRARIES}
+  ${catkin_LIBRARIES}
+  pthread
 )
 
 
@@ -171,12 +168,9 @@ src/saliency.cpp
 src/util.cpp
 )
 add_dependencies(potdetect_new ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(
-  potdetect_new ${catkin_LIBRARIES}
-# opencv_core3
-# opencv_highgui3
-# opencv_imgproc3
-pthread
+target_link_libraries(potdetect_new 
+  ${catkin_LIBRARIES}
+  pthread
 )
 
 add_executable(uav_new
@@ -184,10 +178,8 @@ src/uav.cpp
 )
 add_dependencies(uav_new ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(
-  uav_new ${catkin_LIBRARIES}
-# opencv_core3
-# opencv_highgui3
-# opencv_imgproc3
+  uav_new 
+  ${catkin_LIBRARIES}
 )
 #############
 ## Install ##

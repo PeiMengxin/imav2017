@@ -10,10 +10,15 @@
 #include <vector>
 #include <queue>
 #include <ros/ros.h>
-#include "image_transport/image_transport.h"
-#include "cv_bridge/cv_bridge.h"
-#include "sensor_msgs/image_encodings.h"
-#include "std_msgs/String.h"
+#include <opencv2/opencv.hpp>
+#include <image_transport/image_transport.h>
+#include <cv_bridge/cv_bridge.h>
+#include <sensor_msgs/image_encodings.h>
+#include <std_msgs/String.h>
+#include <imav/GameMode.h>
+#include <imav/Barrel.h>
+#include <imav/BarrelList.h>
+#include <imav/imavFunctions.h>
 
 #define FILTER_LEN 2 * LIFE
 using namespace std;
@@ -28,7 +33,6 @@ int hogFeatLen;
 int pixFeatLen;
 int bowFeatLen;
 
-Mat frame;
 Mat lastFrame;
 Mat filtered_frame;
 
@@ -53,6 +57,32 @@ bool b_Marking;
 
 ros::Publisher feedback_pub;
 ros::Publisher ctrl_pub;
+ros::Publisher barrelList_pub;
+
+void dispTargets(vector<Target>& targets)
+{
+	ROS_INFO("Target number:%d", (int)targets.size());
+	for (size_t i = 0; i < targets.size(); i++)
+	{
+		ROS_INFO("%d %d %d %d", 
+		targets[i].location.x,targets[i].location.y,targets[i].location.width,targets[i].location.height);
+	}
+}
+
+void Targets2Barrels(vector<Target>& targets, imav::BarrelList& barrellist)
+{
+	for (size_t i = 0; i < targets.size(); i++)
+	{
+		imav::Barrel barrel;
+		barrel.left = targets[i].location.x;
+		barrel.top = targets[i].location.y;
+		barrel.right = barrel.left+targets[i].location.width;
+		barrel.bottom = barrel.top+targets[i].location.height;
+		barrel.area = (barrel.right-barrel.left)*(barrel.bottom-barrel.top);
+		barrel.color = imav::Barrel::COLOR_BLUE;
+		barrellist.barrels.push_back(barrel);
+	}
+}
 
 void calcFeatLens()
 {
@@ -73,24 +103,142 @@ void string2msg(const char *info, std_msgs::String &msg)
 	msg.data = ss.str();
 }
 
-void getImageCallback(const sensor_msgs::ImageConstPtr &msg)
+imav::GameMode current_gamemode;
+void get_gamemode(const imav::GameMode::ConstPtr& msg)
 {
-	try
+    current_gamemode = *msg;
+}
+
+cv::VideoWriter videowriter;
+
+void getInfoCallback(const std_msgs::String::ConstPtr &msg)
+{
+	const char *data = msg->data.c_str();
+	if (strcmp(data, "quit") == 0)
 	{
-		frame = cv_bridge::toCvShare(msg, "bgr8")->image;
-		if (frame.rows == 0 or frame.cols == 0)
-			return;
+		b_FrameFinished = true;
+		cout << "Real frame count: " << c << endl;
+		destroyWindow(winName);
+		ros::shutdown();
+	}
+	else if (strcmp(data, "ok") == 0)
+	{
+		b_FrameFinished = false;
+	}
+	else if (strcmp(data, "track") == 0)
+	{
+		b_Tracking = true;
+		//b_Marking=false;
+		;
+	}
+	else if (strcmp(data, "marking") == 0)
+	{
+		b_Tracking = false;
+		b_Marking = true;
+	}
+
+	//this "search" command informs this node that the next target is required
+	//It can be sent by the uav controlling node
+	else if (strcmp(data, "search") == 0)
+	{
+		b_Tracking = false;
+		b_Marking = false;
+	}
+}
+
+cv::Mat current_image;
+
+class ImageConverter
+{
+  ros::NodeHandle nh_;
+  image_transport::ImageTransport it_;
+  image_transport::Subscriber image_sub_;
+  image_transport::Publisher image_pub_;
+
+public:
+  ImageConverter()
+    : it_(nh_)
+  {
+    // Subscrive to input video feed and publish output video feed
+    image_sub_ = it_.subscribe("imav/video_capture", 1,
+      &ImageConverter::imageCb, this);
+    //image_pub_ = it_.advertise("/image_converter/output_video", 1);
+  }
+
+  ~ImageConverter()
+  {
+    //cv::destroyWindow(OPENCV_WINDOW);
+  }
+
+  void imageCb(const sensor_msgs::ImageConstPtr& msg)
+  {
+    cv_bridge::CvImagePtr cv_ptr;
+    try
+    {
+      cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
+    }
+    catch (cv_bridge::Exception& e)
+    {
+      ROS_ERROR("cv_bridge exception: %s", e.what());
+      return;
+    }
+
+    cv_ptr->image.copyTo(current_image);
+
+  }
+};
+
+int main(int argc, char **argv)
+{
+	calcFeatLens();
+	get_logistic(log_hist, "hist");
+	get_logistic(log_hog, "hog");
+
+	ROS_INFO("classifier loaded");
+
+	ros::init(argc, argv, "PotDetect");
+	ros::NodeHandle n_handle;
+
+	ImageConverter image_converter;
+	
+	ros::Subscriber inform_sub = n_handle.subscribe("inform", 500, getInfoCallback);
+	feedback_pub = n_handle.advertise<std_msgs::String>("feedback_info", 500);
+	ctrl_pub = n_handle.advertise<std_msgs::String>("ctrl_info", 100);
+
+	barrelList_pub = n_handle.advertise<imav::BarrelList>("imav/PotDetect_Barrel",1);
+	ros::Subscriber gamemode_sub = n_handle.subscribe<imav::GameMode>("imav/gamemode", 1, get_gamemode);
+
+	std::string my_home_path = expand_user("~") + "/";
+	videowriter.open(my_home_path+"workspace/video/1000.avi", CV_FOURCC('M', 'P', '4', '2'), 60, Size(640, 480));
+	
+	ros::Rate loop_rate(1000);
+	ros::Rate loop_rate1(1);
+
+	ros::Time last_time = ros::Time::now();
+
+	while (ros::ok())
+	{
+		//last_time = ros::Time::now();
+
+		if (!current_image.data or current_gamemode.gamemode != imav::GameMode::GAMEMODE_CHECK_BARREL)
+		{
+			ros::spinOnce();
+			loop_rate1.sleep();
+			ROS_INFO("CurGameMode: %d, PotDetect wait gamede GAMEMODE_CHECK_BARREL ...", current_gamemode.gamemode);
+			continue;
+		}
+		
 		b_NewFrame = true;
 
 		Mat dummy;
-		frame.copyTo(dummy);
+		current_image.copyTo(dummy);
 
 		std_msgs::String feedback_msg;
 		if (first_frame)
 		{
 			first_frame = 0;
-			center_x = frame.cols / 2;
-			center_y = frame.rows / 2;
+			center_x = current_image.cols / 2;
+			center_y = current_image.rows / 2;
 			filtered_frame.create(dummy.size(), CV_8UC1);
 		}
 		if (start)
@@ -104,7 +252,7 @@ void getImageCallback(const sensor_msgs::ImageConstPtr &msg)
 			{
 				filter_len = FILTER_LEN + 1;
 				filtered_frame.setTo(0);
-				detect_bbox(frame, targets, true);
+				detect_bbox(current_image, targets, true);
 				valid_targets = targets;
 				draw_bbox(dummy, targets, 2);
 			}
@@ -165,13 +313,18 @@ void getImageCallback(const sensor_msgs::ImageConstPtr &msg)
 				feedback_pub.publish(feedback_msg);
 			}
 		}
-		frame.copyTo(lastFrame);
 
 		string2msg("ok", feedback_msg);
 		feedback_pub.publish(feedback_msg);
+		
 		//imshow(winName, dummy);
-		waitKey(1);
-		frame.copyTo(lastFrame);
+
+		imav::BarrelList barrelList;
+		Targets2Barrels(targets, barrelList);
+		barrelList_pub.publish(barrelList);
+		videowriter << dummy;
+
+		current_image.copyTo(lastFrame);
 		if (start)
 		{
 			--filter_len;
@@ -181,81 +334,13 @@ void getImageCallback(const sensor_msgs::ImageConstPtr &msg)
 			++start;
 		}
 		++c;
+
+		//ROS_INFO("Time: %f ms", (ros::Time::now() - last_time).toSec() * 1000);
+
+		ros::spinOnce();
+		loop_rate.sleep();
 	}
-	catch (cv_bridge::Exception &e)
-	{
-		ROS_ERROR("Could not convert from '%s' to 'bgr8'.", msg->encoding.c_str());
-	}
-}
-
-void getInfoCallback(const std_msgs::String::ConstPtr &msg)
-{
-	const char *data = msg->data.c_str();
-	if (strcmp(data, "quit") == 0)
-	{
-		b_FrameFinished = true;
-		cout << "Real frame count: " << c << endl;
-		destroyWindow(winName);
-		ros::shutdown();
-	}
-	else if (strcmp(data, "ok") == 0)
-	{
-		b_FrameFinished = false;
-	}
-	else if (strcmp(data, "track") == 0)
-	{
-		b_Tracking = true;
-		//b_Marking=false;
-		;
-	}
-	else if (strcmp(data, "marking") == 0)
-	{
-		b_Tracking = false;
-		b_Marking = true;
-	}
-
-	//this "search" command informs this node that the next target is required
-	//It can be sent by the uav controlling node
-	else if (strcmp(data, "search") == 0)
-	{
-		b_Tracking = false;
-		b_Marking = false;
-	}
-}
-
-int __main(int argc, char **argv)
-{
-	/*	train_logistic_hist(1e5);*/
-
-	string path = "I:/TestOpenCV/Videos/pot_train/samples/brick.jpg";
-	Mat image = imread(path);
-
-	calcFeatLens();
-	Logistic logi;
-	get_logistic(logi, "hog");
-	float res = detect_logistic_hog(image, logi, hogFeatLen);
-	cout << "result: " << res << endl;
-
-	return 0;
-}
-
-int main(int argc, char **argv)
-{
-	calcFeatLens();
-	get_logistic(log_hist, "hist");
-	get_logistic(log_hog, "hog");
-
-	cout << "classifier loaded" << endl;
-	//namedWindow(winName);
-	startWindowThread();
-	ros::init(argc, argv, "PotDetect");
-	ros::NodeHandle n_handle;
-	image_transport::ImageTransport it(n_handle);
-	image_transport::Subscriber image_sub = it.subscribe("imav/video_capture", 1, getImageCallback);
-	ros::Subscriber inform_sub = n_handle.subscribe("inform", 500, getInfoCallback);
-	feedback_pub = n_handle.advertise<std_msgs::String>("feedback_info", 500);
-	ctrl_pub = n_handle.advertise<std_msgs::String>("ctrl_info", 100);
-	//ros::Rate loop_rate(5);
+	
 	ros::spin();
 
 	return 0;
