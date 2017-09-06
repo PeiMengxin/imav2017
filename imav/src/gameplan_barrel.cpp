@@ -213,7 +213,7 @@ int main(int argc, char **argv)
         geometry_msgs::TwistStamped velocity_tw;
         if (ros::Time::now()-last_show_time>ros::Duration(1.0))
         {
-            ROS_INFO("Mode: %s", current_state.mode.c_str());
+            ROS_INFO("PX4 Mode: %s", current_state.mode.c_str());
             ROS_INFO("mission_status: %d", mission_status);
             last_show_time = ros::Time::now();
         }
@@ -438,11 +438,11 @@ int main(int argc, char **argv)
         last_request = ros::Time::now();
     }
 
-    ros::Rate rate1(2);
+    ros::Rate rate1(1);
     while (ros::ok())
     {
 	    ROS_INFO("------Game Over------");
-        ROS_INFO("Mode: %s", current_state.mode.c_str());
+        ROS_INFO("PX4 Mode: %s", current_state.mode.c_str());
         
         ros::spinOnce();
         rate1.sleep();

@@ -194,7 +194,7 @@ int main(int argc, char **argv)
 	get_logistic(log_hist, "hist");
 	get_logistic(log_hog, "hog");
 
-	cout << "classifier loaded" << endl;
+	ROS_INFO("classifier loaded");
 
 	ros::init(argc, argv, "PotDetect");
 	ros::NodeHandle n_handle;
@@ -209,23 +209,22 @@ int main(int argc, char **argv)
 	ros::Subscriber gamemode_sub = n_handle.subscribe<imav::GameMode>("imav/gamemode", 1, get_gamemode);
 
 	std::string my_home_path = expand_user("~") + "/";
-	videowriter.open(my_home_path+"workspace/video/1000.avi", CV_FOURCC('M', 'P', '4', '2'), 30, Size(640, 480));
+	videowriter.open(my_home_path+"workspace/video/1000.avi", CV_FOURCC('M', 'P', '4', '2'), 60, Size(640, 480));
 	
 	ros::Rate loop_rate(1000);
 	ros::Rate loop_rate1(1);
 
+	ros::Time last_time = ros::Time::now();
+
 	while (ros::ok())
 	{
+		//last_time = ros::Time::now();
+
 		if (!current_image.data or current_gamemode.gamemode != imav::GameMode::GAMEMODE_CHECK_BARREL)
 		{
 			ros::spinOnce();
 			loop_rate1.sleep();
 			ROS_INFO("CurGameMode: %d, PotDetect wait gamede GAMEMODE_CHECK_BARREL ...", current_gamemode.gamemode);
-			continue;
-		}
-		
-		if (current_image.rows == 0 or current_image.cols == 0)
-		{
 			continue;
 		}
 		
@@ -335,7 +334,9 @@ int main(int argc, char **argv)
 			++start;
 		}
 		++c;
-	
+
+		//ROS_INFO("Time: %f ms", (ros::Time::now() - last_time).toSec() * 1000);
+
 		ros::spinOnce();
 		loop_rate.sleep();
 	}

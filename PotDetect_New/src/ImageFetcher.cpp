@@ -121,7 +121,7 @@ int main(int argc, char **argv)
 			}
 			if (not bFirstArrived)
 			{
-				cout << "continue to send" << endl;
+				//cout << "continue to send" << endl;
 			}
 			//go_on=vcap.read(frame);
 			next_frame = false;
