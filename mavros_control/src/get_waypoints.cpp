@@ -24,7 +24,7 @@ void get_waypoints_cb(const mavros_msgs::WaypointList::ConstPtr& msg)
 
     for (size_t i = 0; i < current_waypoints.waypoints.size(); i++)
     {
-        ROS_INFO("WP %d",i);
+        ROS_INFO("WP %d",int(i));
         print(current_waypoints.waypoints[i]);
     }
     
