@@ -1,6 +1,7 @@
 #include <ros/ros.h>
+#include <ros/param.h>
 #include <std_msgs/String.h>
-#include <std_msgs/UInt8.h>
+#include <std_msgs/UInt32.h>
 #include <sstream>
 #include <stdlib.h>
 #include <cmath>
@@ -17,21 +18,18 @@
 #include <mavros_msgs/GlobalPositionTarget.h>
 #include <mavros_msgs/HomePosition.h>
 #include <mavros_msgs/CommandHome.h>
-#include <ros/param.h>
+#include <sensor_msgs/NavSatFix.h>
+#include <sensor_msgs/Imu.h>
 #include <iostream>
+#include <imav/imavFunctions.h>
 using namespace std;
 
-std_msgs::String current_distance;
-void get_uwb_disrance_cb(const std_msgs::String::ConstPtr &msg) //????
+std_msgs::UInt32 current_distance;
+void get_uwb_disrance_cb(const std_msgs::UInt32::ConstPtr &msg) //????
 {
     current_distance = *msg;
 }
-int cooperation_control(int actual_distance) //???????
-{
-    //?????1800
 
-    return 0;
-}
 mavros_msgs::State current_state;
 void state_cb(const mavros_msgs::State::ConstPtr &msg)
 {
@@ -42,15 +40,37 @@ geometry_msgs::PoseStamped current_pose;
 void get_local_pose(const geometry_msgs::PoseStamped::ConstPtr &msg)
 {
     current_pose = *msg;
-    //????????
-    // ROS_INFO("ori:%f %f %f %f", current_pose.pose.orientation.w, current_pose.pose.orientation.x,
-    //         current_pose.pose.orientation.y, current_pose.pose.orientation.z);
-    //???????
-    // ROS_INFO("pos: %f %f %f", current_pose.pose.position.x, current_pose.pose.position.y,
-    //         current_pose.pose.position.z);
 }
-//????
-//filter
+
+sensor_msgs::Imu current_imu;
+double current_yaw;
+void imu_cb(const sensor_msgs::Imu::ConstPtr &msg)
+{
+    current_imu = *msg;
+    double q0,q1,q2,q3;
+    q0 = current_imu.orientation.w;
+    q1 = current_imu.orientation.x;
+    q2 = current_imu.orientation.y;
+    q3 = current_imu.orientation.z;
+
+    double Rol = atan2(2 * (q0 * q1 + q2 * q3), -1 + 2 * (q1 * q1 + q2 * q2)) * 57.3f;
+    double Pit = asin(2 * (-q1 * q3 + q0 * q2)) * 57.3f;
+    double Yaw = atan2(2 * (-q1 * q2 - q0 * q3), 1 - 2 * (q0 * q0 + q1 * q1)) * 57.3f;
+    current_yaw = 90-atan2(2. * (q0 * q3 + q1 * q2), 1. - 2. * (q2 * q2 + q3 * q3)) * 57.3f;
+    if (current_yaw<0)
+    {
+        current_yaw += 360;
+    }
+
+    //ROS_INFO("%.2f %.2f %.2f %.2f", Pit, Rol, Yaw, current_yaw);
+}
+
+sensor_msgs::NavSatFix current_gps;
+void get_gps_cb(const sensor_msgs::NavSatFix::ConstPtr& msg)
+{
+    current_gps = *msg;
+    //ROS_INFO("%f %f %f",current_gps.longitude,current_gps.latitude,current_gps.altitude);
+}
 
 int med_filter_tmp_0[11];
 int med_fil_cnt;
@@ -94,16 +114,17 @@ int main(int argc, char **argv)
 {
     ros::init(argc, argv, "cooperation_master");
     ros::NodeHandle nh;
-    ros::Subscriber get_uwb_distance_sub = nh.subscribe("uwb_distance_string", 1, get_uwb_disrance_cb);
+    ros::Subscriber get_uwb_distance_sub = nh.subscribe("uwb_distance", 1, get_uwb_disrance_cb);
 
     ros::Subscriber state_sub = nh.subscribe<mavros_msgs::State>("mavros/state", 10, state_cb);
     ros::Publisher velocity_pub = nh.advertise<geometry_msgs::TwistStamped>("mavros/setpoint_velocity/cmd_vel", 10);
-    ros::Publisher attitude_velocity_pub = nh.advertise<geometry_msgs::TwistStamped>("mavros/setpoint_attitude/cmd_vel", 10);
-    ros::ServiceClient arming_client = nh.serviceClient<mavros_msgs::CommandBool>("mavros/cmd/arming");
-    ros::ServiceClient set_mode_client = nh.serviceClient<mavros_msgs::SetMode>("mavros/set_mode");
-    ros::ServiceClient set_home_client = nh.serviceClient<mavros_msgs::CommandHome>("mavros/cmd/set_home");
-
     ros::Subscriber local_pos_sub = nh.subscribe<geometry_msgs::PoseStamped>("mavros/local_position/pose", 10, get_local_pose);
+    ros::ServiceClient set_mode_client = nh.serviceClient<mavros_msgs::SetMode>("mavros/set_mode");
+    ros::Subscriber get_gps_sub = nh.subscribe<sensor_msgs::NavSatFix>
+    ("/mavros/global_position/global", 1, get_gps_cb);
+    ros::Subscriber imu_sub = nh.subscribe<sensor_msgs::Imu>
+    ("/mavros/imu/data",2,imu_cb);
+    
     //the setpoint publishing rate MUST be faster than 2Hz
     ros::Rate rate(20.0);
 
@@ -120,65 +141,89 @@ int main(int argc, char **argv)
         rate.sleep();
     }
 
-    ros::Time last_request = ros::Time::now();
+    while (ros::ok())
+    {
+        ROS_INFO("PX4 Mode: %s", current_state.mode.c_str());
+        geometry_msgs::TwistStamped velocity_tw;
+        velocity_pub.publish(velocity_tw);
 
-    double exp_high = 3; //????
+        if (current_state.mode=="OFFBOARD")
+        {
+            break;
+        }
+
+        ros::spinOnce();
+        rate.sleep();
+    }
+
+    double lat_takeoff = current_gps.latitude;
+    double long_takeoff = current_gps.longitude;
+    double fly_dis = 0.0;
+
+    mavros_msgs::SetMode offb_set_mode;
+    offb_set_mode.request.custom_mode = "AUTO.LAND";
+
+    float exp_high = 3; //????
     ros::param::get("~exp_high", exp_high);
-    double cooperation_master_speed;
-    ros::param::get("~cooperation_master_speed",cooperation_master_speed);
-
+    double land_dis = 50.0;
+    ros::param::get("~land_dis", land_dis);
+    double cooperation_master_speed = 0.0;
+    ros::param::get("~cooperation_master_speed", cooperation_master_speed);    
     float high_err = 0;
+
     float kp_high = 0.2;
 
     float pid_out_high = 0;
-    float q0, q1, q2, q3; //???
-    float t12, t22, t31, t32, t33;
-    float pitch_radian, roll_radian, yaw_radian;
-    float yaw;
+
+
+    ros::Time last_request = ros::Time::now();
 
     while (ros::ok())
     {
-        //????
-        q0 = current_pose.pose.orientation.w;
-        q1 = current_pose.pose.orientation.x;
-        q2 = current_pose.pose.orientation.y;
-        q3 = current_pose.pose.orientation.z;
-
-        t32 = 2 * (q2 * q3 + q0 * q1);
-        t31 = 2 * (q1 * q3 - q0 * q2);
-        t33 = q0 * q0 - q1 * q1 - q2 * q2 + q3 * q3;
-        t12 = 2 * (q1 * q2 - q0 * q3);
-        t22 = q0 * q0 - q1 * q1 + q2 * q2 - q3 * q3;
-
-        pitch_radian = asin(t32);
-        roll_radian = atan2(-t31, t33);
-        yaw_radian = atan2(t12, t22); //????????-90????????-180?180?
-
-        yaw = yaw_radian / 0.017453;
-        //ROS_INFO("yaw:%f", yaw);
-    
         high_err = exp_high - current_pose.pose.position.z;
-
         pid_out_high = kp_high * high_err;
-            
+
         if (pid_out_high > 0.3 || pid_out_high < -0.3)
         {
             pid_out_high = 0.3 * pid_out_high / abs(pid_out_high);
         }
 
-        // dis_err_last = dis_err;
-
         geometry_msgs::TwistStamped velocity_tw;
         velocity_tw.twist.linear.z = pid_out_high;
-        velocity_tw.twist.linear.x = cos(yaw_radian) * cooperation_master_speed;
-        velocity_tw.twist.linear.y = sin(-yaw_radian) * cooperation_master_speed;
+        velocity_tw.twist.linear.x = sin(current_yaw/57.3f) * cooperation_master_speed;
+        velocity_tw.twist.linear.y = cos(current_yaw/57.3f) * cooperation_master_speed;
 
-        ROS_INFO("master velocity_tw:%f %f", velocity_tw.twist.linear.x, velocity_tw.twist.linear.y);
+        ROS_INFO("velocity_tw:%f %f", velocity_tw.twist.linear.x, velocity_tw.twist.linear.y);
 
-        velocity_pub.publish(velocity_tw); //??????
+        velocity_pub.publish(velocity_tw);
+
+        fly_dis = GetDirectDistance(lat_takeoff, long_takeoff, current_gps.latitude, current_gps.longitude);
+        ROS_INFO("fly_dis:%f", fly_dis);
+        if (fly_dis>land_dis)
+        {
+            break;
+        }
 
         ros::spinOnce();
         rate.sleep();
     }
+
+    offb_set_mode.request.custom_mode = "AUTO.LAND";
+    if( set_mode_client.call(offb_set_mode) && offb_set_mode.response.success)
+    {
+        ROS_INFO("AUTO.LAND enabled");
+        last_request = ros::Time::now();
+    }
+
+    ros::Rate rate1(1);
+    while (ros::ok())
+    {
+	    ROS_INFO("------Game Over------");
+        ROS_INFO("PX4 Mode: %s", current_state.mode.c_str());
+        
+        ros::spinOnce();
+        rate1.sleep();
+    }
+
     return 0;
 }
