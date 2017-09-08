@@ -178,8 +178,6 @@ int main(int argc, char **argv)
 
     ros::Time last_request = ros::Time::now();
 
-    std_msgs::Float64 pid_msg;
-
     while (ros::ok())
     {
         high_err = exp_high - current_pose.pose.position.z;
@@ -189,9 +187,6 @@ int main(int argc, char **argv)
         {
             pid_out_high = 0.3 * pid_out_high / abs(pid_out_high);
         }
-
-        pid_msg.data = pid_out;
-        pid_pub.publish(pid_msg);
 
         geometry_msgs::TwistStamped velocity_tw;
         velocity_tw.twist.linear.z = pid_out_high;
