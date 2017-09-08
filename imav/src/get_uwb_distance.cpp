@@ -18,7 +18,7 @@ int main(int argc,char** argv)
     ros::NodeHandle nh;//声明节点句柄
     ros::Publisher dis_pub = nh.advertise<std_msgs::UInt32>("uwb_distance", 1);
 
-    //std::string uwb_port_name("/dev/ttyACM0");
+    std::string uwb_port_name("/dev/ttyACM0");
     ros::param::get("~uwb_port_name", uwb_port_name);
 
     try
