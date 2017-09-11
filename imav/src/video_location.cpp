@@ -102,7 +102,7 @@ int main(int argc, char *argv[])
     ros::Rate loop_rate(20);
     ros::Rate loop_rate1(1);
 
-    for (size_t i = 0; i < 100; i++)
+    for (size_t i = 0; i < 30; i++)
     {
         ros::spinOnce();
         loop_rate.sleep();
