@@ -96,7 +96,7 @@ static void sortBarrelsByArea(imav::BarrelList &barrellist)
     std::sort(barrellist.barrels.begin(), barrellist.barrels.end(), sortBarrelsByArea1);
 }
 
-static std::string expand_user(std::string path)
+inline std::string expand_user(std::string path)
 {
     if (not path.empty() and path[0] == '~')
     {

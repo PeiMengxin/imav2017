@@ -59,26 +59,26 @@ ros::Publisher feedback_pub;
 ros::Publisher ctrl_pub;
 ros::Publisher barrelList_pub;
 
-void dispTargets(vector<Target>& targets)
+void dispTargets(vector<Target> &targets)
 {
 	ROS_INFO("Target number:%d", (int)targets.size());
 	for (size_t i = 0; i < targets.size(); i++)
 	{
-		ROS_INFO("%d %d %d %d", 
-		targets[i].location.x,targets[i].location.y,targets[i].location.width,targets[i].location.height);
+		ROS_INFO("%d %d %d %d",
+				 targets[i].location.x, targets[i].location.y, targets[i].location.width, targets[i].location.height);
 	}
 }
 
-void Targets2Barrels(vector<Target>& targets, imav::BarrelList& barrellist)
+void Targets2Barrels(vector<Target> &targets, imav::BarrelList &barrellist)
 {
 	for (size_t i = 0; i < targets.size(); i++)
 	{
 		imav::Barrel barrel;
 		barrel.left = targets[i].location.x;
 		barrel.top = targets[i].location.y;
-		barrel.right = barrel.left+targets[i].location.width;
-		barrel.bottom = barrel.top+targets[i].location.height;
-		barrel.area = (barrel.right-barrel.left)*(barrel.bottom-barrel.top);
+		barrel.right = barrel.left + targets[i].location.width;
+		barrel.bottom = barrel.top + targets[i].location.height;
+		barrel.area = (barrel.right - barrel.left) * (barrel.bottom - barrel.top);
 		barrel.color = imav::Barrel::COLOR_BLUE;
 		barrellist.barrels.push_back(barrel);
 	}
@@ -104,9 +104,9 @@ void string2msg(const char *info, std_msgs::String &msg)
 }
 
 imav::GameMode current_gamemode;
-void get_gamemode(const imav::GameMode::ConstPtr& msg)
+void get_gamemode(const imav::GameMode::ConstPtr &msg)
 {
-    current_gamemode = *msg;
+	current_gamemode = *msg;
 }
 
 cv::VideoWriter videowriter;
@@ -150,42 +150,41 @@ cv::Mat current_image;
 
 class ImageConverter
 {
-  ros::NodeHandle nh_;
-  image_transport::ImageTransport it_;
-  image_transport::Subscriber image_sub_;
-  image_transport::Publisher image_pub_;
+	ros::NodeHandle nh_;
+	image_transport::ImageTransport it_;
+	image_transport::Subscriber image_sub_;
+	image_transport::Publisher image_pub_;
 
-public:
-  ImageConverter()
-    : it_(nh_)
-  {
-    // Subscrive to input video feed and publish output video feed
-    image_sub_ = it_.subscribe("imav/video_capture", 1,
-      &ImageConverter::imageCb, this);
-    //image_pub_ = it_.advertise("/image_converter/output_video", 1);
-  }
+  public:
+	ImageConverter()
+		: it_(nh_)
+	{
+		// Subscrive to input video feed and publish output video feed
+		image_sub_ = it_.subscribe("imav/video_capture", 1,
+								   &ImageConverter::imageCb, this);
+		//image_pub_ = it_.advertise("/image_converter/output_video", 1);
+	}
 
-  ~ImageConverter()
-  {
-    //cv::destroyWindow(OPENCV_WINDOW);
-  }
+	~ImageConverter()
+	{
+		//cv::destroyWindow(OPENCV_WINDOW);
+	}
 
-  void imageCb(const sensor_msgs::ImageConstPtr& msg)
-  {
-    cv_bridge::CvImagePtr cv_ptr;
-    try
-    {
-      cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
-    }
-    catch (cv_bridge::Exception& e)
-    {
-      ROS_ERROR("cv_bridge exception: %s", e.what());
-      return;
-    }
+	void imageCb(const sensor_msgs::ImageConstPtr &msg)
+	{
+		cv_bridge::CvImagePtr cv_ptr;
+		try
+		{
+			cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
+		}
+		catch (cv_bridge::Exception &e)
+		{
+			ROS_ERROR("cv_bridge exception: %s", e.what());
+			return;
+		}
 
-    cv_ptr->image.copyTo(current_image);
-
-  }
+		cv_ptr->image.copyTo(current_image);
+	}
 };
 
 int main(int argc, char **argv)
@@ -200,19 +199,24 @@ int main(int argc, char **argv)
 	ros::NodeHandle n_handle;
 
 	ImageConverter image_converter;
-	
+
 	ros::Subscriber inform_sub = n_handle.subscribe("inform", 500, getInfoCallback);
 	feedback_pub = n_handle.advertise<std_msgs::String>("feedback_info", 500);
 	ctrl_pub = n_handle.advertise<std_msgs::String>("ctrl_info", 100);
 
-	barrelList_pub = n_handle.advertise<imav::BarrelList>("imav/PotDetect_Barrel",1);
+	barrelList_pub = n_handle.advertise<imav::BarrelList>("imav/PotDetect_Barrel", 1);
 	ros::Subscriber gamemode_sub = n_handle.subscribe<imav::GameMode>("imav/gamemode", 1, get_gamemode);
 
 	std::string my_home_path = expand_user("~") + "/";
-	videowriter.open(my_home_path+"workspace/video/1000.avi", CV_FOURCC('M', 'P', '4', '2'), 60, Size(640, 480));
-	
+	videowriter.open(my_home_path + "workspace/video/1000.avi", CV_FOURCC('M', 'P', '4', '2'), 60, Size(640, 480));
+
 	ros::Rate loop_rate(1000);
 	ros::Rate loop_rate1(1);
+	for (size_t i = 0; i < 3000; i++)
+	{
+		ros::spinOnce();
+		loop_rate.sleep();
+	}
 
 	ros::Time last_time = ros::Time::now();
 
@@ -227,7 +231,7 @@ int main(int argc, char **argv)
 			ROS_INFO("CurGameMode: %d, PotDetect wait gamede GAMEMODE_CHECK_BARREL ...", current_gamemode.gamemode);
 			continue;
 		}
-		
+
 		b_NewFrame = true;
 
 		Mat dummy;
@@ -316,7 +320,7 @@ int main(int argc, char **argv)
 
 		string2msg("ok", feedback_msg);
 		feedback_pub.publish(feedback_msg);
-		
+
 		//imshow(winName, dummy);
 
 		imav::BarrelList barrelList;
@@ -338,9 +342,9 @@ int main(int argc, char **argv)
 		//ROS_INFO("Time: %f ms", (ros::Time::now() - last_time).toSec() * 1000);
 
 		ros::spinOnce();
-		loop_rate.sleep();
+		//loop_rate.sleep();
 	}
-	
+
 	ros::spin();
 
 	return 0;
