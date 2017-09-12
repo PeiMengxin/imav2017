@@ -118,8 +118,7 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-  include
-  ${catkin_INCLUDE_DIRS}
+  include ${catkin_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
@@ -288,4 +287,13 @@ src/gameplan_survey.cpp
 add_dependencies(gameplan_survey ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(gameplan_survey
 ${catkin_LIBRARIES}
+)
+
+
+add_executable(gameplan_speedcompete
+  src/gameplan_speedcompete.cpp
+)
+add_dependencies(gameplan_speedcompete ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(gameplan_speedcompete
+  ${catkin_LIBRARIES}
 )
