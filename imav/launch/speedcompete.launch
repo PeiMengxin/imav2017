@@ -1,4 +1,4 @@
 <launch>
     <include file="$(find imav)/launch/imav_basic.launch" />
-    <include file="$(find imav)/launch/mission_land_H.launch" />
+    <include file="$(find imav)/launch/mission_speedcompete.launch" />
 </launch>
