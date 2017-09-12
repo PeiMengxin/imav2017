@@ -117,8 +117,7 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-# include
-  ${catkin_INCLUDE_DIRS}
+  include ${catkin_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
@@ -245,5 +244,13 @@ add_executable(send_command
 )
 add_dependencies(send_command ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(send_command
+  ${catkin_LIBRARIES}
+)
+
+add_executable(get_state
+  src/get_state.cpp
+)
+add_dependencies(get_state ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(get_state
   ${catkin_LIBRARIES}
 )
