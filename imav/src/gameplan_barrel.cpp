@@ -134,7 +134,9 @@ imav::Barrel targetBarrel;
 
 int main(int argc, char **argv)
 {
+    int Num = 0;
     std::string barrel_gps_write_file = initBarrelWritePath();
+    std::ofstream barrel_gps_writer;
     ROS_INFO("Barrel GPS File:%s", barrel_gps_write_file.c_str());
 
     ros::init(argc, argv, "gameplan_barrel");
@@ -310,7 +312,6 @@ int main(int argc, char **argv)
                     cur_barrel.longitude = current_gps.longitude;
                     checkedbarrelList.barrels.push_back(cur_barrel);
 
-                    std::ofstream barrel_gps_writer;
                     barrel_gps_writer.open(barrel_gps_write_file.c_str(), ios::app);
                     if (!barrel_gps_writer.is_open())
                     {
@@ -318,12 +319,26 @@ int main(int argc, char **argv)
                     }
                     else
                     {
+                        Num++;
                         barrel_gps_writer << setprecision(15);
-                        barrel_gps_writer<<current_gps.longitude<<" "<<current_gps.latitude<<endl;
-                        string long_dufenmiao = lonlat2degreefenmiao(current_gps.longitude);
-                        string lat_dufenmiao = lonlat2degreefenmiao(current_gps.latitude);
-                        barrel_gps_writer<<long_dufenmiao<<" "<<lat_dufenmiao<<endl;
-                        barrel_gps_writer<<endl;
+                        // barrel_gps_writer<<current_gps.longitude<<" "<<current_gps.latitude<<endl;
+                        // string long_dufenmiao = lonlat2degreefenmiao(current_gps.longitude);
+                        // string lat_dufenmiao = lonlat2degreefenmiao(current_gps.latitude);
+                        // barrel_gps_writer<<long_dufenmiao<<" "<<lat_dufenmiao<<endl;
+                        // barrel_gps_writer<<endl;
+                        // barrel_gps_writer.close();
+
+                        barrel_gps_writer << "<Placemark>" << endl;
+                        barrel_gps_writer << "<name>B" << Num << "</name>" << endl;
+                        barrel_gps_writer << "<description>Color is:Red</description>" << endl;
+                        barrel_gps_writer << "<Point>" << endl;
+                        barrel_gps_writer << "<extrude>1</extrude>" << endl;
+                        barrel_gps_writer << "<altitudeMode>relativeToGround</altitudeMode>" << endl;
+                
+                        barrel_gps_writer << "<coordinates>" << current_gps.longitude << "," << current_gps.latitude << ",50</coordinates>"<<endl;
+                        barrel_gps_writer << "</Point>" << endl;
+                        barrel_gps_writer << "</Placemark>" << endl;
+                
                         barrel_gps_writer.close();
                     }
 
@@ -397,6 +412,11 @@ int main(int argc, char **argv)
         ros::spinOnce();
         rate.sleep();
     }
+
+    barrel_gps_writer.open(barrel_gps_write_file.c_str(), ios::app);
+	barrel_gps_writer << "</Folder>" << endl;
+	barrel_gps_writer << "</kml>" << endl;
+	barrel_gps_writer.close();
 
     offb_set_mode.request.custom_mode = "OFFBOARD";
 
