@@ -157,9 +157,13 @@ static std::string initBarrelWritePath()
 
     ss << barrel_file_num;
     ss >> barrel_gps_file_name;
-    barrel_gps_file_name += ".txt";
+    barrel_gps_file_name += ".kml";
     std::ofstream barrel_gps_writer;
     barrel_gps_writer.open((writer_path + barrel_gps_file_name).c_str(), std::ios::app);
+    barrel_gps_writer << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" << endl;
+	barrel_gps_writer << "<kml>" << endl;
+    barrel_gps_writer << "<Folder>" << endl;
+    barrel_gps_writer.close();
     return (writer_path + barrel_gps_file_name);
 }
 
