@@ -18,11 +18,72 @@
 #include <mavros_msgs/GlobalPositionTarget.h>
 #include <mavros_msgs/HomePosition.h>
 #include <mavros_msgs/CommandHome.h>
+#include <mavros_msgs/Waypoint.h>
+#include <mavros_msgs/WaypointList.h>
+#include <mavros_msgs/WaypointPull.h>
+#include <mavros_msgs/WaypointPush.h>
+#include <mavros_msgs/WaypointClear.h>
+#include <mavros_msgs/WaypointSetCurrent.h>
 #include <sensor_msgs/NavSatFix.h>
 #include <sensor_msgs/Imu.h>
 #include <iostream>
 #include <imav/imavFunctions.h>
+#include <math.h>
 using namespace std;
+#define LIMIT( x,min,max ) ( (x) < (min)  ? (min) : ( (x) > (max) ? (max) : (x) ) )
+#define NAV_EQUATORIAL_RADIUS	(6378.137 * 1000.0)			    // meters
+#define NAV_FLATTENING		(1.0 / 298.257223563)			    // WGS-84
+#define NAV_E_2			(NAV_FLATTENING * (2.0 - NAV_FLATTENING))
+#define M_PI			3.14159265f
+#define M_PI_2			(M_PI / 2.0f)
+#define NAV_HF_HOME_DIST_D_MIN	2.0f						// do not compute dynamic bearing when closer than this to home position (zero to never compute)
+#define NAV_HF_HOME_DIST_FREQ	4						// update distance to home at this Hz, should be > 0 and <= 400
+#define NAV_HF_HOME_BRG_D_MAX	1.0f * DEG_TO_RAD				// re-compute headfree reference angles when bearing to home changes by this many degrees (zero to always re-compute)
+#define NAV_HF_DYNAMIC_DELAY	((int)3e6f)					// delay micros before entering dynamic mode after switch it toggled high
+#define RAD_TO_DEG		(180.0f / M_PI)
+#define DEG_TO_RAD		(M_PI / 180.0f)
+
+double r1, r2,local_lat,local_lon;
+
+void CalcEarthRadius(double lat) {
+    double sinLat2;
+
+    sinLat2 = sin(lat * (double)DEG_TO_RAD);
+    sinLat2 = sinLat2 * sinLat2;
+
+    r1 = (double)NAV_EQUATORIAL_RADIUS * (double)DEG_TO_RAD * ((double)1.0 - (double)NAV_E_2) / pow((double)1.0 - ((double)NAV_E_2 * sinLat2), ((double)3.0 / (double)2.0));
+    r2 = (double)NAV_EQUATORIAL_RADIUS * (double)DEG_TO_RAD / sqrt((double)1.0 - ((double)NAV_E_2 * sinLat2)) * cos(lat * (double)DEG_TO_RAD);
+}
+
+ void CalcGlobalDistance(double lat, double lon,float local_Lat,float local_Lon,float *posNorth,float *posEast ) {
+    *posNorth = (lat - local_Lat) * r1;
+    *posEast =  (lon - local_Lon) * r2;
+}
+
+
+ void CalcGlobalLocation(float posNorth,float posEast,float local_Lat,float local_Lon,double *GPS_W_F,double* GPS_J_F){ 
+    *GPS_W_F=(double)posNorth/(double)(r1+0.1)+local_Lat;
+    *GPS_J_F=(double)posEast/(double)(r2+0.1)+local_Lon;
+}
+
+// input lat/lon in degrees, returns distance in meters
+float navCalcDistance(double lat1, double lon1, double lat2, double lon2) {
+    float n = (lat1 - lat2) * r1;
+    float e = (lon1 - lon2) * r2;
+    return sqrtf(n*n + e*e);
+}
+
+// input lat/lon in degrees, returns bearing in radians
+float navCalcBearing(double lat1, double lon1, double lat2, double lon2) {
+    float n = (float)((lat2 - lat1) * (double)DEG_TO_RAD * r1);
+    float e = (float)((lon2 - lon1) * (double)DEG_TO_RAD * r2);
+    float ret = atan2f(e, n);
+
+    if (!isfinite(ret))
+        ret = 0.0f;
+
+    return ret*57.3;
+}
 
 std_msgs::UInt32 current_distance;
 void get_uwb_disrance_cb(const std_msgs::UInt32::ConstPtr &msg) //????
@@ -44,6 +105,7 @@ void get_local_pose(const geometry_msgs::PoseStamped::ConstPtr &msg)
 
 sensor_msgs::Imu current_imu;
 double current_yaw;
+double current_yaw_rad,current_yaw_x;
 void imu_cb(const sensor_msgs::Imu::ConstPtr &msg)
 {
     current_imu = *msg;
@@ -56,11 +118,13 @@ void imu_cb(const sensor_msgs::Imu::ConstPtr &msg)
     double Rol = atan2(2 * (q0 * q1 + q2 * q3), -1 + 2 * (q1 * q1 + q2 * q2)) * 57.3f;
     double Pit = asin(2 * (-q1 * q3 + q0 * q2)) * 57.3f;
     double Yaw = atan2(2 * (-q1 * q2 - q0 * q3), 1 - 2 * (q0 * q0 + q1 * q1)) * 57.3f;
-    current_yaw = 90-atan2(2. * (q0 * q3 + q1 * q2), 1. - 2. * (q2 * q2 + q3 * q3)) * 57.3f;
-    if (current_yaw<0)
+    current_yaw_x=atan2(2. * (q0 * q3 + q1 * q2), 1. - 2. * (q2 * q2 + q3 * q3)) * 57.3f;
+    current_yaw = 90 - current_yaw_x;
+    if (current_yaw < 0)
     {
         current_yaw += 360;
     }
+    current_yaw_rad = current_yaw / 57.3f;
 
     //ROS_INFO("%.2f %.2f %.2f %.2f", Pit, Rol, Yaw, current_yaw);
 }
@@ -110,12 +174,37 @@ int Moving_Median(int width_num, int in)
     }
 }
 
+void print_wp(const mavros_msgs::Waypoint &wp)
+{
+    ROS_INFO("gps:%f %f %f", wp.x_lat, wp.y_long, wp.z_alt);
+    ROS_INFO("%d %d %d %d", wp.command, wp.frame, wp.autocontinue, wp.is_current);
+    ROS_INFO("param:%f %f %f %f", wp.param1, wp.param2, wp.param3, wp.param4);
+}
+
+mavros_msgs::Waypoint target_waypoint;
+double target_dis = 0.0;
+double wp_p = 0.2;
+float wp_i = 0.001;
+double y_speed_g = 0.0;
+double x_speed_g = 0.0;
+
+double y_speed_bady = 0.0;
+double x_speed_bady = 0.0;
+mavros_msgs::WaypointList current_waypoints;
+void get_waypoints(const mavros_msgs::WaypointList::ConstPtr &msg)
+{
+    current_waypoints = *msg;
+
+    target_waypoint = current_waypoints.waypoints[current_waypoints.waypoints.size() - 2];
+}
+
 int main(int argc, char **argv)
 {
     ros::init(argc, argv, "cooperation_node");
     ros::NodeHandle nh;
     ros::Subscriber get_uwb_distance_sub = nh.subscribe("uwb_distance", 1, get_uwb_disrance_cb);
-
+    ros::Subscriber waypoints_sub = nh.subscribe<mavros_msgs::WaypointList>
+    ("mavros/mission/waypoints", 1, get_waypoints);
     ros::Subscriber state_sub = nh.subscribe<mavros_msgs::State>("mavros/state", 10, state_cb);
     ros::Publisher velocity_pub = nh.advertise<geometry_msgs::TwistStamped>("mavros/setpoint_velocity/cmd_vel", 10);
     ros::Subscriber local_pos_sub = nh.subscribe<geometry_msgs::PoseStamped>("mavros/local_position/pose", 10, get_local_pose);
@@ -126,7 +215,13 @@ int main(int argc, char **argv)
     ("/mavros/imu/data",2,imu_cb);
 
     ros::Publisher pid_pub = nh.advertise<std_msgs::Float64>("pid_out", 1);
-    
+
+    int en_spd0 = 0;
+    int en_spd1 = 0;
+
+    ros::param::get("~en_spd0", en_spd0);
+    ros::param::get("~en_spd1", en_spd1);
+
     //the setpoint publishing rate MUST be faster than 2Hz
     ros::Rate rate(20.0);
 
@@ -158,10 +253,13 @@ int main(int argc, char **argv)
         rate.sleep();
     }
 
+    CalcEarthRadius(current_gps.latitude);
+    
     double lat_takeoff = current_gps.latitude;
     double long_takeoff = current_gps.longitude;
     double fly_dis = 0.0;
-
+    local_lat = lat_takeoff;
+    local_lon = long_takeoff;
     mavros_msgs::SetMode offb_set_mode;
     offb_set_mode.request.custom_mode = "AUTO.LAND";
 
@@ -195,6 +293,37 @@ int main(int argc, char **argv)
 
     while (ros::ok())
     {
+        float ex, ey;
+        static float int_x, int_y;
+        float pos_x, pos_y, tar_x, tar_y ,tar_x_9,tar_y_9;
+        float yaw_ep;
+        CalcGlobalDistance(current_gps.latitude, current_gps.longitude, local_lat, local_lon, &pos_y, &pos_x);
+        CalcGlobalDistance(target_waypoint.x_lat, target_waypoint.y_long, local_lat, local_lon, &tar_y, &tar_x);
+        yaw_ep = navCalcBearing(target_waypoint.x_lat, target_waypoint.y_long, current_gps.latitude, current_gps.longitude);
+
+        float b = tar_y-tan(current_yaw_x / 57.3f) * tar_x;
+        float b2 = pos_y+ pos_x/tan(current_yaw_x / 57.3f) ;
+        tar_x_9 = (b2 - b) / (tan(current_yaw_x / 57.3f) + 1 / tan(current_yaw_x / 57.3f));
+        tar_y_9 = tan(current_yaw_x  / 57.3f) * tar_x_9 + b;
+
+        ex =LIMIT(tar_x_9 - pos_x, -8,8);
+        ey =LIMIT( tar_y_9 - pos_y,-8,8);
+        int_x += ex * wp_i;
+        int_y += ey * wp_i;
+        int_x = LIMIT(int_x, -1, 1);
+        int_y = LIMIT(int_y, -1, 1);
+        y_speed_g = wp_p * ey+int_y;
+        x_speed_g = wp_p * ex+int_x;
+      
+        y_speed_bady = y_speed_g * cos(current_yaw_rad) + x_speed_g * sin(current_yaw_rad);
+        x_speed_bady = -y_speed_g * sin(current_yaw_rad) + x_speed_g * cos(current_yaw_rad);
+        x_speed_bady *= 1;
+        y_speed_bady *= 1;
+
+        x_speed_bady = LIMIT(x_speed_bady, -3, 3);
+        y_speed_bady = LIMIT(y_speed_bady, -3, 3);
+        ROS_INFO("ex:%f,ey:%f x:%f,y:%f",yaw_ep, ex, ey, x_speed_bady, y_speed_bady);
+      
         distance_int = current_distance.data;
 
         //distance_filter = Moving_Median(8, distance_int);
@@ -220,12 +349,13 @@ int main(int argc, char **argv)
             
         ROS_INFO_STREAM("PID_OUT= " << pid_out);
         pid_msg.data = pid_out;
+        pid_out = 1.0;
         pid_pub.publish(pid_msg);
 
         geometry_msgs::TwistStamped velocity_tw;
         velocity_tw.twist.linear.z = pid_out_high;
-        velocity_tw.twist.linear.x = sin(current_yaw/57.3f) * pid_out;
-        velocity_tw.twist.linear.y = cos(current_yaw/57.3f) * pid_out;
+        velocity_tw.twist.linear.x = sin(current_yaw_rad) * pid_out*en_spd0 + cos(current_yaw_rad) * x_speed_bady*en_spd1;
+        velocity_tw.twist.linear.y = cos(current_yaw_rad) * pid_out*en_spd0 - sin(current_yaw_rad) * x_speed_bady*en_spd1;
 
         ROS_INFO("velocity_tw:%f %f", velocity_tw.twist.linear.x, velocity_tw.twist.linear.y);
 
