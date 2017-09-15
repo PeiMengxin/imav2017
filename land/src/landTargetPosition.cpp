@@ -69,7 +69,6 @@ int main(int argc, char *argv[])
     ros::Subscriber gamemode_sub = nh.subscribe<imav::GameMode>("imav/gamemode", 1, get_gamemode);
 
     ImageConverter image_converter;
-    geometry_msgs::PoseStamped current_target_position;
 
     ros::Rate loop_rate(1000);
     ros::Rate loop_rate1(1);
@@ -91,6 +90,8 @@ int main(int argc, char *argv[])
 
     while (ros::ok())
     {
+        geometry_msgs::PoseStamped current_target_position;
+        
         if (current_gamemode.gamemode != imav::GameMode::GAMEMODE_CHECK_H)
         {
             //cv::destroyAllWindows();
