@@ -350,7 +350,6 @@ int main(int argc, char **argv)
             
         ROS_INFO_STREAM("PID_OUT= " << pid_out);
         pid_msg.data = pid_out;
-        pid_out = 1.0;
         pid_pub.publish(pid_msg);
 
         geometry_msgs::TwistStamped velocity_tw;
