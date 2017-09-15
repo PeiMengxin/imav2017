@@ -196,7 +196,7 @@ void get_waypoints(const mavros_msgs::WaypointList::ConstPtr &msg)
 {
     current_waypoints = *msg;
 
-    target_waypoint = current_waypoints.waypoints[current_waypoints.waypoints.size() - 2];
+    //target_waypoint = current_waypoints.waypoints[current_waypoints.waypoints.size() - 2];
 }
 
 int main(int argc, char **argv)
@@ -291,9 +291,22 @@ int main(int argc, char **argv)
     ros::Time last_request = ros::Time::now();
 
     std_msgs::Float64 pid_msg;
-
+    ros::Time target_time = ros::Time::now();
+    int target_wp_index = 1;
+    double target_change_time = 10.0;
+    ros::param::get("~target_change_time", target_change_time);
     while (ros::ok())
     {
+        if (ros::Time::now()-target_time>ros::Duration(target_change_time))
+        {
+            target_time = ros::Time::now();
+            if (target_wp_index > current_waypoints.waypoints.size()-2)
+            {
+                target_wp_index = current_waypoints.waypoints.size() - 2;
+            }
+            target_waypoint = current_waypoints.waypoints[target_wp_index];
+            target_wp_index++;
+        }
         float ex, ey;
         static float int_x, int_y;
         float pos_x, pos_y, tar_x, tar_y ,tar_x_9,tar_y_9;

@@ -13,5 +13,6 @@
         <param name="kd" type="double" value="0.0015" />
         <param name="en_spd0" type="int" value="1" />
         <param name="en_spd1" type="int" value="1" />
+        <param name="target_change_time" type="double" value="8.0" />
     </node>
 </launch>
