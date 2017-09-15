@@ -104,7 +104,7 @@ void get_local_pose(const geometry_msgs::PoseStamped::ConstPtr &msg)
 
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "gameplan1");
+    ros::init(argc, argv, "gameplan_speedcompete");
     ros::NodeHandle nh;
 
     ros::Subscriber state_sub = nh.subscribe<mavros_msgs::State>("mavros/state", 10, state_cb);

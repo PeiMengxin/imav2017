@@ -18,6 +18,12 @@
 #include <mavros_msgs/GlobalPositionTarget.h>
 #include <mavros_msgs/HomePosition.h>
 #include <mavros_msgs/CommandHome.h>
+#include <mavros_msgs/Waypoint.h>
+#include <mavros_msgs/WaypointList.h>
+#include <mavros_msgs/WaypointPull.h>
+#include <mavros_msgs/WaypointPush.h>
+#include <mavros_msgs/WaypointClear.h>
+#include <mavros_msgs/WaypointSetCurrent.h>
 #include <sensor_msgs/NavSatFix.h>
 #include <sensor_msgs/Imu.h>
 #include <iostream>
@@ -72,6 +78,24 @@ void get_gps_cb(const sensor_msgs::NavSatFix::ConstPtr& msg)
     //ROS_INFO("%f %f %f",current_gps.longitude,current_gps.latitude,current_gps.altitude);
 }
 
+void print_wp(const mavros_msgs::Waypoint &wp)
+{
+    ROS_INFO("gps:%f %f %f", wp.x_lat, wp.y_long, wp.z_alt);
+    ROS_INFO("%d %d %d %d", wp.command, wp.frame, wp.autocontinue, wp.is_current);
+    ROS_INFO("param:%f %f %f %f", wp.param1, wp.param2, wp.param3, wp.param4);
+}
+mavros_msgs::WaypointList current_waypoints;
+void get_waypoints(const mavros_msgs::WaypointList::ConstPtr &msg)
+{
+    current_waypoints = *msg;
+
+    for (size_t i = 0; i < current_waypoints.waypoints.size(); i++)
+    {
+        ROS_INFO("WP %d",int(i));
+        print_wp(current_waypoints.waypoints[i]);
+    }
+}
+
 int med_filter_tmp_0[11];
 int med_fil_cnt;
 int Moving_Median(int width_num, int in)
@@ -118,12 +142,11 @@ int main(int argc, char **argv)
 
     ros::Subscriber state_sub = nh.subscribe<mavros_msgs::State>("mavros/state", 10, state_cb);
     ros::Publisher velocity_pub = nh.advertise<geometry_msgs::TwistStamped>("mavros/setpoint_velocity/cmd_vel", 10);
-    ros::Subscriber local_pos_sub = nh.subscribe<geometry_msgs::PoseStamped>("mavros/local_position/pose", 10, get_local_pose);
+    ros::Subscriber local_pos_sub = nh.subscribe<geometry_msgs::PoseStamped>("mavros/local_position/pose", 10,get_local_pose);
     ros::ServiceClient set_mode_client = nh.serviceClient<mavros_msgs::SetMode>("mavros/set_mode");
-    ros::Subscriber get_gps_sub = nh.subscribe<sensor_msgs::NavSatFix>
-    ("/mavros/global_position/global", 1, get_gps_cb);
-    ros::Subscriber imu_sub = nh.subscribe<sensor_msgs::Imu>
-    ("/mavros/imu/data",2,imu_cb);
+    ros::Subscriber get_gps_sub = nh.subscribe<sensor_msgs::NavSatFix>("/mavros/global_position/global", 1, get_gps_cb);
+    ros::Subscriber imu_sub = nh.subscribe<sensor_msgs::Imu>("/mavros/imu/data",2,imu_cb);
+    ros::Subscriber waypoints_sub = nh.subscribe<mavros_msgs::WaypointList>("mavros/mission/waypoints", 10, get_waypoints);
     
     //the setpoint publishing rate MUST be faster than 2Hz
     ros::Rate rate(20.0);
@@ -177,25 +200,41 @@ int main(int argc, char **argv)
 
 
     ros::Time last_request = ros::Time::now();
+    bool breakmission_over = false;
 
     while (ros::ok())
     {
-        high_err = exp_high - current_pose.pose.position.z;
-        pid_out_high = kp_high * high_err;
-
-        if (pid_out_high > 0.3 || pid_out_high < -0.3)
+        if (!breakmission_over)
         {
-            pid_out_high = 0.3 * pid_out_high / abs(pid_out_high);
+            if (current_state.mode == "OFFBOARD" && ros::Time::now() - last_request > ros::Duration(1.0))
+            {
+                offb_set_mode.request.custom_mode = "AUTO.MISSION";
+                if (set_mode_client.call(offb_set_mode) && offb_set_mode.response.success)
+                {
+                    ROS_INFO("MISSION enabled");
+                    breakmission_over = true;
+                }
+            }
         }
-
         geometry_msgs::TwistStamped velocity_tw;
-        velocity_tw.twist.linear.z = pid_out_high;
-        velocity_tw.twist.linear.x = sin(current_yaw/57.3f) * cooperation_master_speed;
-        velocity_tw.twist.linear.y = cos(current_yaw/57.3f) * cooperation_master_speed;
-
-        ROS_INFO("velocity_tw:%f %f", velocity_tw.twist.linear.x, velocity_tw.twist.linear.y);
-
         velocity_pub.publish(velocity_tw);
+
+        // high_err = exp_high - current_pose.pose.position.z;
+        // pid_out_high = kp_high * high_err;
+
+        // if (pid_out_high > 0.3 || pid_out_high < -0.3)
+        // {
+        //     pid_out_high = 0.3 * pid_out_high / abs(pid_out_high);
+        // }
+
+        // geometry_msgs::TwistStamped velocity_tw;
+        // velocity_tw.twist.linear.z = pid_out_high;
+        // velocity_tw.twist.linear.x = sin(current_yaw/57.3f) * cooperation_master_speed;
+        // velocity_tw.twist.linear.y = cos(current_yaw/57.3f) * cooperation_master_speed;
+
+        // ROS_INFO("velocity_tw:%f %f", velocity_tw.twist.linear.x, velocity_tw.twist.linear.y);
+
+        // velocity_pub.publish(velocity_tw);
 
         fly_dis = GetDirectDistance(lat_takeoff, long_takeoff, current_gps.latitude, current_gps.longitude);
         ROS_INFO("fly_dis:%f", fly_dis);

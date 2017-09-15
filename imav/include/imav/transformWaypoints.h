@@ -10,7 +10,7 @@
 #include <mavros_msgs/WaypointSetCurrent.h>
 #include <mavros_msgs/CommandCode.h>
 
-mavros_msgs::WaypointList transformWaypoints(mavros_msgs::WaypointList& pointlist);
+mavros_msgs::WaypointList transformWaypoints(mavros_msgs::WaypointList& pointlist, double mission_speed = 1.0, double wp_height = 5.0);
 bool pushWaypointList(mavros_msgs::WaypointList& pointlist);
 bool clearWaypointList();
 

@@ -115,6 +115,27 @@ int main(int argc, char **argv)
         rate.sleep();
     }
 
+    ros::Time last_show_time = ros::Time::now();
+
+    while (ros::ok())
+    {
+        if (ros::Time::now() - last_show_time > ros::Duration(1.0))
+        {
+            ROS_INFO("PX4 Mode: %s", current_state.mode.c_str());
+            last_show_time = ros::Time::now();
+        }
+        geometry_msgs::TwistStamped velocity_tw;
+        velocity_pub.publish(velocity_tw);
+
+        if (current_state.mode == "OFFBOARD")
+        {
+            break;
+        }
+
+        ros::spinOnce();
+        rate.sleep();
+    }
+
     mavros_msgs::SetMode offb_set_mode;
     offb_set_mode.request.custom_mode = "OFFBOARD";
 
@@ -126,7 +147,6 @@ int main(int argc, char **argv)
 
     bool breakmission_over = false;
     ros::Time last_request = ros::Time::now();
-    ros::Time last_show_time = ros::Time::now();
 
     while (ros::ok())
     {
