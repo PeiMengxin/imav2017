@@ -1,7 +1,7 @@
 #include "imav/transformWaypoints.h"
 #include <ros/ros.h>
 
-mavros_msgs::WaypointList transformWaypoints(mavros_msgs::WaypointList& pointlist)
+mavros_msgs::WaypointList transformWaypoints(mavros_msgs::WaypointList& pointlist, double mission_speed, double wp_height)
 {
     mavros_msgs::WaypointList wp_list;
 
@@ -15,7 +15,7 @@ mavros_msgs::WaypointList transformWaypoints(mavros_msgs::WaypointList& pointlis
     waypoint_setvelocity.autocontinue = true;
     waypoint_setvelocity.is_current = true;
     waypoint_setvelocity.param1 = 1;
-    waypoint_setvelocity.param2 = 0.7;//velocity
+    waypoint_setvelocity.param2 = mission_speed;//velocity
     waypoint_setvelocity.param3 = -1;
 
     wp_list.waypoints.push_back(waypoint_setvelocity);
@@ -25,7 +25,7 @@ mavros_msgs::WaypointList transformWaypoints(mavros_msgs::WaypointList& pointlis
         mavros_msgs::Waypoint waypoint0;
         waypoint0.x_lat = pointlist.waypoints[0].x_lat;
         waypoint0.y_long = pointlist.waypoints[0].y_long;
-        waypoint0.z_alt = 5.0;
+        waypoint0.z_alt = wp_height;
         waypoint0.command = mavros_msgs::CommandCode::NAV_TAKEOFF;
         waypoint0.frame = mavros_msgs::Waypoint::FRAME_GLOBAL_REL_ALT;
         waypoint0.autocontinue = true;
@@ -38,7 +38,7 @@ mavros_msgs::WaypointList transformWaypoints(mavros_msgs::WaypointList& pointlis
         mavros_msgs::Waypoint waypoint1;
         waypoint1.x_lat = pointlist.waypoints[i].x_lat;
         waypoint1.y_long = pointlist.waypoints[i].y_long;
-        waypoint1.z_alt = 5.0;
+        waypoint1.z_alt = wp_height;
         waypoint1.command = mavros_msgs::CommandCode::NAV_WAYPOINT;
         waypoint1.frame = mavros_msgs::Waypoint::FRAME_GLOBAL_REL_ALT;
         waypoint1.autocontinue = true;
@@ -48,7 +48,7 @@ mavros_msgs::WaypointList transformWaypoints(mavros_msgs::WaypointList& pointlis
     mavros_msgs::Waypoint waypoint1;
     waypoint1.x_lat = pointlist.waypoints[pointlist.waypoints.size()-1].x_lat;
     waypoint1.y_long = pointlist.waypoints[pointlist.waypoints.size()-1].y_long;
-    waypoint1.z_alt = 5.0;
+    waypoint1.z_alt = wp_height;
     waypoint1.command = mavros_msgs::CommandCode::NAV_WAYPOINT;
     waypoint1.frame = mavros_msgs::Waypoint::FRAME_GLOBAL_REL_ALT;
     waypoint1.autocontinue = true;

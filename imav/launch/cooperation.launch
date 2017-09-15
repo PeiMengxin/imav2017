@@ -1,4 +1,7 @@
 <launch>
+    <node pkg="imav" type="recordPoints" name="recordPoints" output="screen" />
+	    <param name="wp_height" type="double" value="3.0" />
+	    <param name="mission_speed" type="double" value="1.0" /> 
     <node pkg="imav" type="get_uwb_distance" name="get_uwb_distance" output="screen">
 	    <param name="uwb_port_name" type="str" value="/dev/ttyACM1" />
     </node>
@@ -8,5 +11,7 @@
         <param name="land_dis" type="double" value="50.0" />
         <param name="kp" type="double" value="0.0030" />
         <param name="kd" type="double" value="0.0015" />
+        <param name="en_spd0" type="int" value="1" />
+        <param name="en_spd0" type="int" value="1" />
     </node>
 </launch>

@@ -34,6 +34,9 @@ using namespace std;
 
 mavros_msgs::WaypointList record_points;
 
+double wp_height = 3.0;
+double mission_speed = 1.0;
+
 sensor_msgs::NavSatFix current_gps;
 void get_gps_cb(const sensor_msgs::NavSatFix::ConstPtr &msg)
 {
@@ -100,7 +103,7 @@ void checkChannel6()
     }
     if (channel6_laststatus == MID && channel6_currentstatus == HIGH)
     {
-        mavros_msgs::WaypointList wp_list = transformWaypoints(record_points);
+        mavros_msgs::WaypointList wp_list = transformWaypoints(record_points, mission_speed, wp_height);
         pushWaypointList(wp_list);
     }
     else if (channel6_laststatus == MID && channel6_currentstatus == LOW)
@@ -122,8 +125,11 @@ void get_rc_in(const mavros_msgs::RCIn::ConstPtr &msg)
 
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "get_rc_node");
+    ros::init(argc, argv, "recordpoints_node");
     ros::NodeHandle nh;
+
+    ros::param::get("~wp_height", wp_height);
+    ros::param::get("~mission_speed", mission_speed);
 
     ros::Subscriber state_sub = nh.subscribe<mavros_msgs::State>("mavros/state", 10, state_cb);
     ros::Subscriber rc_out_sub = nh.subscribe<mavros_msgs::RCOut>("mavros/rc/out", 1, get_rc_out);
