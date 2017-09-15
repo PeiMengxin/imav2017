@@ -30,18 +30,19 @@
 #include <imav/imavFunctions.h>
 #include <math.h>
 using namespace std;
+
 #define LIMIT( x,min,max ) ( (x) < (min)  ? (min) : ( (x) > (max) ? (max) : (x) ) )
 #define NAV_EQUATORIAL_RADIUS	(6378.137 * 1000.0)			    // meters
 #define NAV_FLATTENING		(1.0 / 298.257223563)			    // WGS-84
 #define NAV_E_2			(NAV_FLATTENING * (2.0 - NAV_FLATTENING))
-#define M_PI			3.14159265f
-#define M_PI_2			(M_PI / 2.0f)
+#define M_M_PI			3.14159265f
+#define M_M_PI_2			(M_M_PI / 2.0f)
 #define NAV_HF_HOME_DIST_D_MIN	2.0f						// do not compute dynamic bearing when closer than this to home position (zero to never compute)
 #define NAV_HF_HOME_DIST_FREQ	4						// update distance to home at this Hz, should be > 0 and <= 400
 #define NAV_HF_HOME_BRG_D_MAX	1.0f * DEG_TO_RAD				// re-compute headfree reference angles when bearing to home changes by this many degrees (zero to always re-compute)
 #define NAV_HF_DYNAMIC_DELAY	((int)3e6f)					// delay micros before entering dynamic mode after switch it toggled high
-#define RAD_TO_DEG		(180.0f / M_PI)
-#define DEG_TO_RAD		(M_PI / 180.0f)
+#define RAD_TO_DEG		(180.0f / M_M_PI)
+#define DEG_TO_RAD		(M_M_PI / 180.0f)
 
 double r1, r2,local_lat,local_lon;
 
@@ -322,8 +323,8 @@ int main(int argc, char **argv)
 
         x_speed_bady = LIMIT(x_speed_bady, -3, 3);
         y_speed_bady = LIMIT(y_speed_bady, -3, 3);
-        ROS_INFO("ex:%f,ey:%f x:%f,y:%f",yaw_ep, ex, ey, x_speed_bady, y_speed_bady);
-      
+        ROS_INFO("yaw_ep:%f, ex:%f,ey:%f x:%f,y:%f", yaw_ep, ex, ey, x_speed_bady, y_speed_bady);
+
         distance_int = current_distance.data;
 
         //distance_filter = Moving_Median(8, distance_int);
