@@ -131,6 +131,9 @@ int main(int argc, char **argv)
     ros::param::get("~wp_height", wp_height);
     ros::param::get("~mission_speed", mission_speed);
 
+    ROS_INFO("wp_height: %f", wp_height);
+    ROS_INFO("mission_speed: %f", mission_speed);
+
     ros::Subscriber state_sub = nh.subscribe<mavros_msgs::State>("mavros/state", 10, state_cb);
     ros::Subscriber rc_out_sub = nh.subscribe<mavros_msgs::RCOut>("mavros/rc/out", 1, get_rc_out);
     ros::Subscriber rc_in_sub = nh.subscribe<mavros_msgs::RCIn>("mavros/rc/in", 1, get_rc_in);
