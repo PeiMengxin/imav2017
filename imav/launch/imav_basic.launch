@@ -1,8 +1,9 @@
 <launch>
     <node pkg="imav" type="videoCapture" name="videoCapture" output="screen" />
-    <node pkg="imav" type="recordPoints" name="recordPoints" output="screen" />
-	    <param name="wp_height" type="double" value="5.0" />
-	    <param name="mission_speed" type="double" value="1.5" /> 
+    <node pkg="imav" type="recordPoints" name="recordPoints" output="screen">
+	    <param name="wp_height" type="double" value="10.0" />
+	    <param name="mission_speed" type="double" value="3.0" /> 
+	</node>
     <node pkg="pid" type="pid_node" name="pid_node" output="screen">
 	<param name="velocity_z_hastarget" type="double" value="-0.3" />
 	<param name="velocity_z_notarget" type="double" value="-0.3" />
